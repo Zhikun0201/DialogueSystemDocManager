@@ -18,7 +18,6 @@ import window_master as wm
 
 
 __path__ = os.path.dirname(os.path.realpath(__file__))
-print(1)
 
 class WindowData(object):
     main = None
