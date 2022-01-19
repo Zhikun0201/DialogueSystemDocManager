@@ -114,8 +114,9 @@ class ExcelData(object):
 class ExcelManager(object):
     def __init__(self):
         super(ExcelManager, self).__init__()
-        json_path = 'D:/OneDrive/Unreal/PersonalProject/Content/Dialogue'
-        json_file = '%s/Dlg_TestFile.dlg.json' % json_path
+        json_path = os.path.abspath(os.path.join(os.getcwd(), "../.."))
+        print(json_path)
+        json_file = '%s/Dialogue/Dlg_TestFile.dlg.json' % json_path
         self.ExcelWriter.workbook_loader()
         self.ExcelWriter.dlgjson_loader(json_file)
         node = ExcelData.json["StartNode"]
