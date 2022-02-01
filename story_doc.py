@@ -19,6 +19,7 @@ import window_master as wm
 
 __path__ = os.path.dirname(os.path.realpath(__file__))
 
+
 class WindowData(object):
     main = None
 
@@ -95,8 +96,10 @@ class ExcelData(object):
     work_book = None
     work_sheet = None
     flow = []
+    flow_all_paths = []
     json = None
     sheet_row = None
+    next_str = ["Next", "Skip", "Finish"]
     head = {
         "GUID": 1,
         "TechIndex": 2,
@@ -119,10 +122,11 @@ class ExcelManager(object):
         json_file = '%s/Dialogue/Dlg_TestFile.dlg.json' % json_path
         self.ExcelWriter.workbook_loader()
         self.ExcelWriter.dlgjson_loader(json_file)
-        node = ExcelData.json["StartNode"]
-        nodes = ExcelData.json["Nodes"]
-        self.ExcelWriter.node_handler()
-        self.ExcelWriter.book_writer()
+        self.ExcelWriter.start_node_handler()
+
+        # self.ExcelWriter.flow_filter()
+        # self.ExcelWriter.flow_level_parser()
+        # self.ExcelWriter.book_writer()
         ExcelData.work_book.save("file/Generate.xlsx")
         print("Gernerated Excel files as 'file\Generate.xlsx'")
         # os.startfile("%s/file/Generate.xlsx" % __path__)
@@ -164,7 +168,7 @@ class ExcelManager(object):
             sequence_parser = ExcelManager.ExcelWriter.speech_sequence_parser
             end_parser = ExcelManager.ExcelWriter.end_node_parser
 
-            ExcelManager.ExcelWriter.row_level_parser(flow)
+            # ExcelManager.ExcelWriter.row_level_parser(flow)
 
             for node in flow:
                 print(node)
@@ -174,7 +178,7 @@ class ExcelManager(object):
 
                 nodeindex = elm["index"]
                 elmtype = elm["type"]
-                indent = elm["level"]
+                indent = elm["level"] * 2
 
                 if elmtype == "start":
                     row = start_paser(i)
@@ -215,13 +219,107 @@ class ExcelManager(object):
                         row["content"], indent)
 
         @staticmethod
+        def start_node_handler():
+            start_node = ExcelData.json["StartNode"]
+            flp = ExcelData.flow_all_paths
+            bhandler = ExcelManager.ExcelWriter.branch_handler
+
+            flow_elm = {}  # 创建一个flow元素
+            flow_elm["index"] = -1  # 分支的来源node
+            flow_elm["type"] = "start"  # 标记类型
+            flow_elm["level"] = 0
+            # Add node to flow
+            # print(flow_elm)
+            flp.append(flow_elm)  # 加入flow
+            # 处理分支
+            bhandler(start_node)
+
+        @staticmethod
+        def branch_handler(node, level=0):
+            flp = ExcelData.flow_all_paths
+            nhandler = ExcelManager.ExcelWriter.node_handler
+            next_str = ExcelData.next_str
+
+            children = node["Children"]
+
+            # Next
+            if children.__len__() == 1 and children[0]["Text"] in next_str:
+                target_index = children[0]["TargetIndex"]
+                nhandler(target_index, level)
+                return
+
+            # Branch
+            for child in children:
+                flow_elm = {}
+                try:
+                    flow_elm["index"] = node["__index__"]
+                except KeyError:
+                    flow_elm["index"] = -1
+                flow_elm["type"] = "branch"
+                flow_elm["order"] = children.index(child)
+                flow_elm["level"] = level
+                # ExcelManager.ExcelWriter.testtest(flow_elm, level)
+
+                # Add node to flow.
+                flp.append(flow_elm)
+                # Parse target node
+                target_index = child["TargetIndex"]
+                nhandler(target_index, level + 1)
+
+        @staticmethod
+        def node_handler(node_index=-1, level=0):
+            '''Add input node to flow by calling 
+            ExcelManager.ExcelWriter.flow_filter().
+            It will call itself if the node has braches.
+            :param node_index: The index of node to parse.
+            '''
+            bhandler = ExcelManager.ExcelWriter.branch_handler
+            flp = ExcelData.flow_all_paths
+            # fl = ExcelManager.ExcelWriter.flow_filter
+            nodes: list = ExcelData.json["Nodes"]
+            node: dict = nodes[node_index]
+
+            # 节点的出链类型
+            ntype = ExcelManager.ExcelWriter.node_type(node)
+
+            flow_elm = {}
+
+            # index
+            flow_elm["index"] = node["__index__"]
+            # type
+            if ntype == "sequence":
+                flow_elm["type"] = "sequence"
+                flow_elm["level"] = level
+                flp.append(flow_elm)
+
+                seq_nodes: list = node["SpeechSequence"]
+                for s_node in seq_nodes:
+                    flow_elm = {}
+                    flow_elm["index"] = node["__index__"]
+                    flow_elm["type"] = "sequence_child"
+                    flow_elm["order"] = seq_nodes.index(s_node)
+                    flow_elm["level"] = level + 1
+                    flp.append(flow_elm)
+
+                flow_elm = {}
+                flow_elm["type"] = "sequence_end"
+            else:
+                flow_elm["type"] = ntype
+            # level
+            flow_elm["level"] = level
+
+            # Add node to flow.
+            flp.append(flow_elm)
+            bhandler(node, level)
+
+        @staticmethod
         def node_type(node):
             '''Return a node's type.
             :param node: A dialogue system node in json file. Should convert to dict first.
             :type: dict
             :returns:
                 :return "start": It's a start node.
-                :return "speech": It's a speech node without branch or option.
+                :return "speech": It's a speech node.
                 :return "selector": It's a selector node.
                 :return "sequence": It's a sequence node.
                 :return "end": It's a end node.
@@ -240,143 +338,21 @@ class ExcelManager(object):
                 return "end"
 
         @staticmethod
-        def flow_filter(flow_element):
-            '''Write element to flow list, and pop the existed same element.
+        def flow_filter():
+            """Write element to flow list, and pop the existed same element.
             :param flow_element: New flow element from flow parser.
+            """
             '''
-            fl = ExcelData.flow
-            t = fl.count(flow_element)
-            if t == 1:
-                f = fl.index(flow_element)
-                fl.pop(f)
-            fl.append(flow_element)
-
-        @staticmethod
-        def node_handler(node_index=-1):
-            '''Add input node to flow by calling 
-            ExcelManager.ExcelWriter.flow_filter().
-            It will call itself if the node has braches.
-            :param in_node: The node to parse.
-            :param all_nodes: All the speech nodes for index.
+            找到每个节点的入链数量，
+            如果单个节点的入链数 n >= 2
+            回溯来源节点，
+            比较所有level，找到最小的level
             '''
-            nhandler = ExcelManager.ExcelWriter.node_handler
-            bhandler = ExcelManager.ExcelWriter.branch_handler
-
-            ffilter = ExcelManager.ExcelWriter.flow_filter
-            nodes: list = ExcelData.json["Nodes"]
-            if node_index == -1:
-                node: dict = ExcelData.json["StartNode"]
-            else:
-                node: dict = nodes[node_index]
-
-            # 节点的出链类型
-            ntype = ExcelManager.ExcelWriter.node_type(node)
-
-            # 如果该节点指向一个分支
-            if ntype == "start":
-                flow_elm = {}  # 创建一个flow元素
-                flow_elm["index"] = -1  # 分支的来源node
-                flow_elm["type"] = "start"  # 标记类型
-                # Add node to flow
-                ffilter(flow_elm)  # 加入flow
-                # 处理分支
-                bhandler(node)
-            elif ntype == "speech":
-                # 处理节点
-                flow_elm = {}
-                flow_elm["index"] = node["__index__"]
-                flow_elm["type"] = "speech"
-                # Add node to flow.
-                ffilter(flow_elm)
-                # 处理分支
-                bhandler(node)
-            elif ntype == "selector":
-                flow_elm = {}
-                flow_elm["index"] = node["__index__"]
-                flow_elm["type"] = "selector"
-                ffilter(flow_elm)
-                # Take care of branches
-                bhandler(node)
-            elif ntype == "sequence":
-                flow_elm = {}
-                flow_elm["index"] = node["__index__"]
-                flow_elm["type"] = "sequence"
-                ffilter(flow_elm)
-
-                seq_nodes: list = node["SpeechSequence"]
-                for s_node in seq_nodes:
-                    flow_elm = {}
-                    flow_elm["index"] = node["__index__"]
-                    flow_elm["type"] = "sequence_child"
-                    flow_elm["order"] = seq_nodes.index(s_node)
-                    ffilter(flow_elm)
-                flow_elm = {}
-                flow_elm["index"] = node["__index__"]
-                flow_elm["type"] = "sequence_end"
-                ffilter(flow_elm)
-                bhandler(node)
-            elif ntype == "end":
-                # 写入节点
-                flow_elm = {}
-                flow_elm["index"] = node["__index__"]
-                flow_elm["type"] = "end"
-                # Add node to flow.
-                ffilter(flow_elm)
-
-        @staticmethod
-        def branch_handler(node):
-            ffilter = ExcelManager.ExcelWriter.flow_filter
-            nhandler = ExcelManager.ExcelWriter.node_handler
-
-            children = node["Children"]
-
-            if children.__len__() == 1:
-                target_index = children[0]["TargetIndex"]
-                nhandler(target_index)
-                return
-            for child in children:
-                flow_elm = {}
-                try:
-                    flow_elm["index"] = node["__index__"]
-                except KeyError:
-                    flow_elm["index"] = -1
-                flow_elm["type"] = "branch"
-                flow_elm["order"] = children.index(child)
-                ffilter(flow_elm)
-                # Parse target node
-                target_index = child["TargetIndex"]
-                nhandler(target_index)
-
-        @staticmethod
-        def row_level_parser(flow):
-            indent = 0
-            parse_record = {}
-            for felm in flow:
-                index = felm['index']
-
-                # If the index is already in parse record,
-                # which means it's a branch or sequence.
-                if index in parse_record.keys():
-                    # For sequence's child, just make it indent 2.
-                    if felm["type"] == "sequence_child":
-                        indent = parse_record[index] + 2
-                        felm['level'] = indent
-                    # For sequence's end, make it indent back.
-                    elif felm["type"] == "sequence_end":
-                        indent = parse_record[index]
-                        felm['level'] = indent
-                    # For other nodes' branch:
-                    else:
-                        indent = parse_record[index]
-                        felm['level'] = indent
-                        indent += 2
-                # If the index is new,
-                # which means it's a node (speech, start or end).
-                else:
-                    if felm["type"] == "end":
-                        indent = 0
-                    parse_record[index] = indent
-                    felm['level'] = indent
+            '''
+            其实相当于找到每个节点在flow中的出现次数，
+            如果出现次数大于等于2，则找到最高的合并等级，
+            向前合并
+            '''
 
         @staticmethod
         def start_node_parser(row):
