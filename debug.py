@@ -4,5 +4,4 @@ class DebugMessage(object):
         
 class DebugExit(object):
     def __init__(self, name):
-        if not object:
-            print(f"Exit: <{name}> is not valid.")
+        print(f"Debug Exit: <{name}> is not valid.")

@@ -7,13 +7,8 @@ from debug import DebugMessage, DebugExit
 class JTEData():
     work_book = None
     work_sheet = None
-    flow = []
     flow_order = []
-    flow_all_paths = []
     dlg_json = {}
-    node_relations = {}
-    sheet_row = None
-    next_str = ["Next", "Skip", "Finish"]
 
 
 @unique
@@ -46,7 +41,7 @@ class JsonToExcel(object):
         print("JsonToExcel Init.")
         # get json file path
         json_dir = os.path.abspath(os.path.join(os.getcwd(), "../.."))
-        json_path = '%s/Dialogue/Dlg_TestFile_2.dlg.json' % json_dir
+        json_path = '%s/Dialogue/Dlg_TestFile.dlg.json' % json_dir
         # factory
         self.dlg_json_loader(json_path)
 
@@ -69,8 +64,9 @@ class JsonToExcel(object):
         f.close()
 
     @staticmethod
-    def get_node_relations():
-        '''记录索引与children的关系（StartNode的索引记作-1）
+    def get_node_children():
+        '''获取所有node中index与children的关系
+        （StartNode的索引记作-1）
         '''
         dlgfile = JTEData.dlg_json
         if not dlgfile:
@@ -93,21 +89,23 @@ class JsonToExcel(object):
             for child in node_children:
                 node_targets.append(child["TargetIndex"])
             node_relations[node_index] = node_targets
-        JTEData.node_relations = node_relations
 
-        DebugMessage("Node Realations", node_relations)
+        # DebugMessage("Node Realations", node_relations)
 
         return node_relations
 
     @staticmethod
     def flow_order(node_relations):
-        """将node按flow的先后顺序排序
+        """将node按flow的先后顺序排序。
+        依赖于node_relations。
         """
         if not node_relations:
             DebugExit("Node realations")
             return
 
         flow_dict = {}
+        
+        # 先处理StartNode
         start_node = node_relations.pop(-1)
         flow_dict[-1] = start_node
 
@@ -139,21 +137,24 @@ class JsonToExcel(object):
 
         DebugMessage("Flow Order", flow_order)
 
-        return flow_order
+        JTEData.flow_order = flow_order
+        # return flow_order
 
     @staticmethod
-    def indent_level(flow_order):
-        """计算每个节点的缩进等级
+    def indent_level(node_relations):
+        """计算每个节点的缩进等级。
+        依赖于node_relations。
         """
-        if not flow_order:
-            print("Exit: Flow order is not valid.")
+        if not node_relations:
+            DebugExit("Node Relations")
             return
+        print(node_relations)
 
         indent_level = {}
 
 
 if __name__ == "__main__":
     JsonToExcel()
-    node_relations = JsonToExcel.get_node_relations()
-    flow_order = JsonToExcel.flow_order(node_relations)
-    JsonToExcel.indent_level(flow_order)
+    node_relations = JsonToExcel.get_node_children
+    JsonToExcel.flow_order(node_relations())
+    JsonToExcel.indent_level(node_relations())
