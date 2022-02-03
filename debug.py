@@ -1,6 +1,8 @@
-def not_valid(data):
-    if data:
-        return False
-    data = locals()
-    print(f"{data} is not valide")
-    return True
+class DebugMessage(object):
+    def __init__(self, name, object=None):
+        print(f"Debug Message <{name}>:", object)
+        
+class DebugExit(object):
+    def __init__(self, name):
+        if not object:
+            print(f"Exit: <{name}> is not valid.")

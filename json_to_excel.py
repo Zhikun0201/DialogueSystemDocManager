@@ -1,6 +1,7 @@
 import os
 import json
 from enum import Enum, unique
+from debug import DebugMessage, DebugExit
 
 
 class JTEData():
@@ -45,7 +46,7 @@ class JsonToExcel(object):
         print("JsonToExcel Init.")
         # get json file path
         json_dir = os.path.abspath(os.path.join(os.getcwd(), "../.."))
-        json_path = '%s/Dialogue/Dlg_TestFile.dlg.json' % json_dir
+        json_path = '%s/Dialogue/Dlg_TestFile_2.dlg.json' % json_dir
         # factory
         self.dlg_json_loader(json_path)
 
@@ -54,9 +55,9 @@ class JsonToExcel(object):
         """加载DlgSystem资产的json文件
         """
         if not os.path.exists(json_file):
-            print("Exit: Dlg json path is not valid.")
+            DebugExit("Dlg json's path")
             return
-        
+
         with open(json_file, encoding="UTF-8") as f:
             dj_file = json.load(f)
         if not dj_file:
@@ -73,7 +74,7 @@ class JsonToExcel(object):
         '''
         dlgfile = JTEData.dlg_json
         if not dlgfile:
-            print("Exit: Dlg json is not valid.")
+            DebugExit("Dlg json")
             return
 
         node_relations = {}
@@ -94,15 +95,16 @@ class JsonToExcel(object):
             node_relations[node_index] = node_targets
         JTEData.node_relations = node_relations
 
-        print("Debug Message <node relations>:", node_relations)
+        DebugMessage("Node Realations", node_relations)
+
+        return node_relations
 
     @staticmethod
-    def flow_order():
+    def flow_order(node_relations):
         """将node按flow的先后顺序排序
         """
-        node_relations = JTEData.node_relations.copy()
         if not node_relations:
-            print("Exit: Node relations is not valid.")
+            DebugExit("Node realations")
             return
 
         flow_dict = {}
@@ -116,37 +118,42 @@ class JsonToExcel(object):
             for target_list in flow_revers:
                 if target_list == []:
                     continue
-                flow_value_last = target_list.pop(0)
+                last_node_first_child = target_list.pop(0)
                 break
+            # print("当前需要处理的节点是：", last_node_first_child)
 
             # 检查child是否也是其他节点的child
             same_elm_found = False
             for node_children in node_relations.values():
-                if flow_value_last in node_children:
+                if last_node_first_child in node_children:
                     same_elm_found = True
+                    # print("该节点被重复引用了↑" )
+                    break
 
             # 如果其他节点没有该child，则将其置入flow
             if not same_elm_found:
-                popitem = node_relations.pop(flow_value_last)
-                flow_dict[flow_value_last] = popitem
+                popitem = node_relations.pop(last_node_first_child)
+                flow_dict[last_node_first_child] = popitem
 
         flow_order = list(flow_dict.keys())
-        JTEData.flow_order = flow_order
-        print("Debug Message <flow>:", flow_order)
+
+        DebugMessage("Flow Order", flow_order)
+
+        return flow_order
 
     @staticmethod
-    def indent_level():
+    def indent_level(flow_order):
         """计算每个节点的缩进等级
         """
-        flow_order = JTEData.flow_order
         if not flow_order:
             print("Exit: Flow order is not valid.")
             return
-        
-        
+
+        indent_level = {}
 
 
 if __name__ == "__main__":
     JsonToExcel()
-    JsonToExcel.get_node_relations()
-    JsonToExcel.flow_order()
+    node_relations = JsonToExcel.get_node_relations()
+    flow_order = JsonToExcel.flow_order(node_relations)
+    JsonToExcel.indent_level(flow_order)
