@@ -104,7 +104,7 @@ class JsonToExcel(object):
             return
 
         flow_dict = {}
-        
+
         # 先处理StartNode
         start_node = node_relations.pop(-1)
         flow_dict[-1] = start_node
@@ -141,16 +141,67 @@ class JsonToExcel(object):
         # return flow_order
 
     @staticmethod
-    def indent_level(node_relations):
+    def indent_level(node_relations: dict):
         """计算每个节点的缩进等级。
-        依赖于node_relations。
+        依赖于node_relations，以及flow_order。
         """
         if not node_relations:
             DebugExit("Node Relations")
             return
-        print(node_relations)
+
+        flow_order = JTEData.flow_order
+        if not flow_order:
+            DebugExit("Flow Order")
+            return
 
         indent_level = {}
+
+        # level = 0
+
+        for index in flow_order:
+
+            branch_flag = False  # 分支标记
+            in_links = []  # 所有入链的来源节点
+
+            # 检查index在children中出现的次数
+            t = 0
+            for n_key, n_value in node_relations.items():
+                if index in n_value:
+                    t += 1  # 出现次数
+                    in_links.append(n_key)  # 记录入链
+                    if n_value.__len__() >= 2:
+                        branch_flag = True  # 判断是分支
+            # 检查完毕
+
+            # 如果一个index在所有出链中出现次数为0，
+            # 该index有可能对应着一个开始节点或者悬浮节点，
+            # 将其等级设置为0即可。
+            if t == 0:
+                indent_level[index] = 0
+            # 如果一个index在所有出链中次数为1，
+            # 检查其入链的来源节点是否为分支，
+            # 如果是分支，则设置其缩进等级+1，否则继承缩进等级。
+            elif t == 1:
+                in_link = in_links[0]
+                level = indent_level[in_link]
+                if branch_flag:
+                    level += 1
+                indent_level[index] = level
+            # 如果一个index在所有出链中次数大于等于2，
+            # 获取所有入链的来源节点的缩进等级，进而找到最小值，
+            # 使缩进等级等于最小值-1（需保证大于0）
+            elif t >= 2:
+                link_levels = []
+                for link in in_links:
+                    link_level = indent_level[link]
+                    link_levels.append(link_level)
+                level = min(link_levels)
+                if level >= 1:
+                    level -= 1
+
+                indent_level[index] = level
+
+        DebugMessage("Indent Level", indent_level)
 
 
 if __name__ == "__main__":
