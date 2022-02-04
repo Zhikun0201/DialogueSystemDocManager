@@ -7,8 +7,8 @@ from debug import DebugMessage, DebugExit
 class JTEData():
     work_book = None
     work_sheet = None
-    flow_order = []
     dlg_json = {}
+    flow_order = []
 
 
 @unique
@@ -95,21 +95,21 @@ class JsonToExcel(object):
         return node_relations
 
     @staticmethod
-    def flow_order(node_relations):
+    def flow_order(node_and_children):
         """将node按flow的先后顺序排序。
         依赖于node_relations。
         """
-        if not node_relations:
+        if not node_and_children:
             DebugExit("Node realations")
             return
 
         flow_dict = {}
 
         # 先处理StartNode
-        start_node = node_relations.pop(-1)
+        start_node = node_and_children.pop(-1)
         flow_dict[-1] = start_node
 
-        while node_relations != {}:
+        while node_and_children != {}:
             # 拿到flow中最后一个有效的chidren的第一个child
             flow_revers = list(flow_dict.values())
             flow_revers.reverse()
@@ -122,7 +122,7 @@ class JsonToExcel(object):
 
             # 检查child是否也是其他节点的child
             same_elm_found = False
-            for node_children in node_relations.values():
+            for node_children in node_and_children.values():
                 if last_node_first_child in node_children:
                     same_elm_found = True
                     # print("该节点被重复引用了↑" )
@@ -130,33 +130,31 @@ class JsonToExcel(object):
 
             # 如果其他节点没有该child，则将其置入flow
             if not same_elm_found:
-                popitem = node_relations.pop(last_node_first_child)
+                popitem = node_and_children.pop(last_node_first_child)
                 flow_dict[last_node_first_child] = popitem
 
         flow_order = list(flow_dict.keys())
 
         DebugMessage("Flow Order", flow_order)
 
-        JTEData.flow_order = flow_order
-        # return flow_order
+        # JTEData.flow_order = flow_order
+        return flow_order
 
     @staticmethod
-    def indent_level(node_relations: dict):
+    def indent_level(node_and_children: dict):
         """计算每个节点的缩进等级。
         依赖于node_relations，以及flow_order。
         """
-        if not node_relations:
+        if not node_and_children:
             DebugExit("Node Relations")
             return
 
-        flow_order = JTEData.flow_order
+        flow_order = JsonToExcel.flow_order(node_and_children)
         if not flow_order:
             DebugExit("Flow Order")
             return
 
         indent_level = {}
-
-        # level = 0
 
         for index in flow_order:
 
@@ -165,7 +163,7 @@ class JsonToExcel(object):
 
             # 检查index在children中出现的次数
             t = 0
-            for n_key, n_value in node_relations.items():
+            for n_key, n_value in node_and_children.items():
                 if index in n_value:
                     t += 1  # 出现次数
                     in_links.append(n_key)  # 记录入链
@@ -203,9 +201,10 @@ class JsonToExcel(object):
 
         DebugMessage("Indent Level", indent_level)
 
+        return indent_level
+
 
 if __name__ == "__main__":
     JsonToExcel()
-    node_relations = JsonToExcel.get_node_children
-    JsonToExcel.flow_order(node_relations())
-    JsonToExcel.indent_level(node_relations())
+    node_relations = JsonToExcel.get_node_children()
+    JsonToExcel.indent_level(node_relations)
