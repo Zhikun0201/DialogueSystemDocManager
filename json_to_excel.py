@@ -141,7 +141,7 @@ class JsonToExcel(object):
         return flow_order
 
     @staticmethod
-    def indent_level(node_and_children: dict):
+    def indent_level(node_and_children: dict, flow_order: list):
         """计算每个节点的缩进等级。
         依赖于node_relations，以及flow_order。
         """
@@ -149,7 +149,6 @@ class JsonToExcel(object):
             DebugExit("Node Relations")
             return
 
-        flow_order = JsonToExcel.flow_order(node_and_children)
         if not flow_order:
             DebugExit("Flow Order")
             return
@@ -206,5 +205,6 @@ class JsonToExcel(object):
 
 if __name__ == "__main__":
     JsonToExcel()
-    node_relations = JsonToExcel.get_node_children()
-    JsonToExcel.indent_level(node_relations)
+    node_and_children = JsonToExcel.get_node_children
+    flow_order = JsonToExcel.flow_order(node_and_children())
+    JsonToExcel.indent_level(node_and_children(), flow_order)

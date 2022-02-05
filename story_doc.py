@@ -68,7 +68,7 @@ class WindowController(object):
         @staticmethod
         def on_createBook_clicked():
             json_path = 'D:/OneDrive/Unreal/PersonalProject/Content/Dialogue'
-            json_file = '%s/Dlg_TestFile.dlg.json' % json_path
+            json_file = '%s/Dlg_TestFile_2.dlg.json' % json_path
             with open(json_file, encoding="UTF-8") as f:
                 file = json.load(f)
                 print(file)
@@ -123,10 +123,11 @@ class ExcelManager(object):
         self.ExcelWriter.workbook_loader()
         self.ExcelWriter.dlgjson_loader(json_file)
         self.ExcelWriter.start_node_handler()
+        print(ExcelData.flow_all_paths)
 
-        # self.ExcelWriter.flow_filter()
+        self.ExcelWriter.flow_filter()
         # self.ExcelWriter.flow_level_parser()
-        # self.ExcelWriter.book_writer()
+        self.ExcelWriter.book_writer()
         ExcelData.work_book.save("file/Generate.xlsx")
         print("Gernerated Excel files as 'file\Generate.xlsx'")
         # os.startfile("%s/file/Generate.xlsx" % __path__)
