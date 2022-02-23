@@ -100,15 +100,17 @@ class JsonToExcel(object):
         依赖于node_relations。
         """
         if not node_and_children:
-            DebugExit("Node realations")
+            DebugExit("Node and children")
             return
 
         flow_dict = {}
+        flow_order = [-1]
 
         # 先处理StartNode
         start_node = node_and_children.pop(-1)
         flow_dict[-1] = start_node
 
+        rec = -1
         while node_and_children != {}:
             # 拿到flow中最后一个有效的chidren的第一个child
             flow_revers = list(flow_dict.values())
@@ -118,27 +120,58 @@ class JsonToExcel(object):
                     continue
                 last_node_first_child = target_list.pop(0)
                 break
-            # print("当前需要处理的节点是：", last_node_first_child)
+            DebugMessage("当前处理节点", last_node_first_child)
+
+            # 一些安全措施
+            if last_node_first_child == rec:
+                DebugMessage("发现重复处理", rec)
+                break
+            rec = last_node_first_child
 
             # 检查child是否也是其他节点的child
             same_elm_found = False
             for node_children in node_and_children.values():
                 if last_node_first_child in node_children:
                     same_elm_found = True
-                    # print("该节点被重复引用了↑" )
+                    DebugMessage("发现该节点出现在后续流程中", last_node_first_child)
                     break
+
+            # TODO 如果节点有多个入链
+            # 需要判断其是否处于一个循环链中，
+            # 如果是的话，先加入flow当中
+            DebugMessage("Current Flow", flow_dict)
+            if same_elm_found:
+                JsonToExcel.is_loop_flow(
+                    last_node_first_child, node_and_children)
 
             # 如果其他节点没有该child，则将其置入flow
             if not same_elm_found:
                 popitem = node_and_children.pop(last_node_first_child)
                 flow_dict[last_node_first_child] = popitem
-
-        flow_order = list(flow_dict.keys())
+                flow_order.append(last_node_first_child)
 
         DebugMessage("Flow Order", flow_order)
 
-        # JTEData.flow_order = flow_order
         return flow_order
+
+    @staticmethod
+    def is_loop_flow(index, node_and_children):
+        """判断一个node是否处于循环当中。
+        好几把烦啊我要哭了"""
+
+        parse_record = {}
+
+        parse_record[index] = node_and_children[index]
+
+        # print(parse_record)
+
+        r_prec = list(parse_record.values())
+        r_prec.reverse()
+
+        for targets in r_prec:
+            if targets == []:
+                continue
+            last_node = targets[0]
 
     @staticmethod
     def indent_level(node_and_children: dict, flow_order: list):
@@ -205,6 +238,7 @@ class JsonToExcel(object):
 
 if __name__ == "__main__":
     JsonToExcel()
+    # TempTest
     node_and_children = JsonToExcel.get_node_children
     flow_order = JsonToExcel.flow_order(node_and_children())
-    JsonToExcel.indent_level(node_and_children(), flow_order)
+    # JsonToExcel.indent_level(node_and_children(), flow_order)
